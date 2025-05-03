@@ -21,7 +21,7 @@ function createNewPK(keytype) {
         data.append("mnemonic_length", 12);
         target = document.getElementById("bip39_mnemonic_container")
     } else if (keytype == "bip39_24") {
-        target = data.append("mnemonic_length", 24);
+        data.append("mnemonic_length", 24);
         target = document.getElementById("bip39_mnemonic_container")
     }
 
@@ -107,10 +107,69 @@ function loadPK(keytype, targetId) {
     .catch(reason => {
         console.log(reason);
     })
-
 }
 
+/************************* NIP-05 Validation *************************/
+var nip05_slide_open = null;
+function prepareNip05Validate() {
+    let target = document.getElementById("nip05_validate_container");
 
+    if (nip05_slide_open !== null && nip05_slide_open.id != target.id) {
+        slideUp(nip05_slide_open);
+        nip05_slide_open = null;
+    }
+
+    if (nip05_slide_open === null) {
+        slideDown(target);
+        nip05_slide_open = target;
+    }
+
+    // Clear previous results
+    document.getElementById("nip05_result").innerHTML = "";
+}
+
+function validateNip05() {
+    let identifier = document.getElementById("nip05_identifier").value;
+    let pubkey_hex = document.getElementById("pubkey_hex").value;
+
+    if (!identifier || !pubkey_hex) {
+        showPopupMessage("Please provide both a NIP-05 identifier and a public key.");
+        return;
+    }
+
+    let data = new FormData();
+    data.append("identifier", identifier);
+    data.append("pubkey_hex", pubkey_hex);
+
+    showLoader();
+    fetch(
+        "/nip05/validate",
+        {
+            method: 'POST',
+            body: data
+        }
+    )
+    .then(response => response.json())
+    .then(result => {
+        hideLoader();
+        let resultDiv = document.getElementById("nip05_result");
+        if (result.status === "success") {
+            resultDiv.innerHTML = `<p style="color: green;">${result.message}</p>`;
+            if (result.relays && result.relays.length > 0) {
+                resultDiv.innerHTML += `<p>Recommended relays: ${result.relays.join(", ")}</p>`;
+            }
+        } else {
+            resultDiv.innerHTML = `<p style="color: red;">${result.message}</p>`;
+            if (result.message.includes("CORS")) {
+                resultDiv.innerHTML += `<p>Ensure the server includes 'Access-Control-Allow-Origin: *' in its response headers.</p>`;
+            }
+        }
+    })
+    .catch(reason => {
+        hideLoader();
+        showPopupMessage(`Error: ${reason}`);
+    });
+}
 
 /************************* NIP-26 *************************/
 var curNip26Slide = null;
@@ -446,6 +505,7 @@ document.addEventListener("DOMContentLoaded", function(){
 function initializeIndex() {
     slideBtnClick("header_event");
     slideBtnClick("header_nip26");
+    slideBtnClick("header_nip05");
 
     // Initialize the NIP-26 "Create" elements
     let target = document.getElementById("nip26_create_kinds_checkboxes");

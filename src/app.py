@@ -1,6 +1,7 @@
 import json
 import ssl
 import time
+import requests
 from binascii import unhexlify
 from flask import Flask, request, render_template
 from nostr.delegation import Delegation
@@ -242,3 +243,102 @@ def event_publish():
         kind=event.kind,
         note_id=event.note_id
     )
+
+@app.route("/nip05/validate", methods=['POST'])
+def nip05_validate():
+    """
+    Validate a NIP-05 identifier against a public key.
+    Returns status and optional relays if available.
+    """
+    identifier = request.form["identifier"]
+    pubkey_hex = request.form["pubkey_hex"]
+
+    # Validate identifier format
+    if "@" not in identifier or len(identifier.split("@")) != 2:
+        return dict(
+            status="error",
+            message="Invalid identifier format. Expected: <local-part>@<domain>"
+        )
+
+    local_part, domain = identifier.split("@")
+
+    # Handle special case: "_@domain" maps to just "domain"
+    if local_part == "_":
+        local_part = ""
+
+    # Validate local-part characters (a-z0-9-_.)
+    import re
+    if local_part and not re.match(r'^[a-z0-9\-_\.]+$', local_part, re.IGNORECASE):
+        return dict(
+            status="error",
+            message="Invalid local-part. Allowed characters: a-z0-9-_. (case-insensitive)"
+        )
+
+    # Construct the well-known URL
+    url = f"https://{domain}/.well-known/nostr.json?name={local_part}"
+
+    try:
+        # Make HTTP request without following redirects
+        response = requests.get(url, allow_redirects=False, timeout=5)
+
+        # Check for redirects (not allowed per NIP-05)
+        if response.status_code in (301, 302, 303, 307, 308):
+            return dict(
+                status="error",
+                message="HTTP redirects are not allowed for NIP-05 endpoints"
+            )
+
+        # Check for successful response
+        if response.status_code != 200:
+            return dict(
+                status="error",
+                message=f"Failed to fetch NIP-05 data: HTTP {response.status_code}"
+            )
+
+        # Parse JSON response
+        data = response.json()
+
+        # Check if 'names' key exists
+        if "names" not in data or not isinstance(data["names"], dict):
+            return dict(
+                status="error",
+                message="Invalid response: 'names' key missing or not an object"
+            )
+
+        # Get the public key for the local-part
+        returned_pubkey = data["names"].get(local_part, None)
+
+        if not returned_pubkey:
+            return dict(
+                status="error",
+                message=f"No public key found for {local_part} in response"
+            )
+
+        # Validate the returned public key
+        if returned_pubkey != pubkey_hex:
+            return dict(
+                status="error",
+                message="Public key mismatch"
+            )
+
+        # Check for optional relays
+        relays = []
+        if "relays" in data and isinstance(data["relays"], dict):
+            relays = data["relays"].get(pubkey_hex, [])
+
+        return dict(
+            status="success",
+            message=f"NIP-05 identifier {identifier} is valid",
+            relays=relays
+        )
+
+    except requests.exceptions.RequestException as e:
+        return dict(
+            status="error",
+            message=f"Network error: {str(e)}"
+        )
+    except ValueError:
+        return dict(
+            status="error",
+            message="Invalid JSON response from server"
+        )

@@ -77,11 +77,29 @@
                     <input id="pubkey_hex" type="text" readonly>
                     <br/>
                 </div>
-            
+
             </div>
         </div>
 
+        <div id="section_nip05" class="section">
+            <div id="header_nip05" class="section_header">NIP-05 Identifier Validation</div>
+            <div id="content_nip05" class="section_content start_hidden">
+                <div class="subsection">
+                    Validate a NIP-05 identifier (e.g., bob@example.com) against your public key.
+                    <div>
+                        <input onclick="prepareNip05Validate();" type="button" value="Validate NIP-05 Identifier" >
+                    </div>
+                </div>
 
+                <div id="nip05_validate_container" class="start_hidden">
+                    NIP-05 Identifier:<br/>
+                    <input id="nip05_identifier" type="text" placeholder="e.g., bob@example.com or _@example.com"><br/>
+                    <input onclick="validateNip05();" type="button" value="Validate">
+                </div>
+
+                <div id="nip05_result" class="subsection"></div>
+            </div>
+        </div>
 
         <div id="section_nip26" class="section">
             <div id="header_nip26" class="section_header">NIP-26 Delegation</div>
@@ -103,7 +121,6 @@
 
                 <div id="nip26_create_container" class="start_hidden">
                     The key you created/loaded above will grant limited signing permissions to the delegatee with the following conditions:
-
                     <div class="subsection">
                         Delegatee privkey hex or nsec:<br/>
                         <input id="nip26_create_delegatee_pk" type="text"><br/>
@@ -132,16 +149,13 @@
                 <div id="nip26_raw_delegation_token_container" class="start_hidden">
                     Delegation token (see: <a href="https://github.com/nostr-protocol/nips/blob/master/26.md#delegation-token" target="_new">NIP-26</a>):<br/>
                     <input id="nip26_raw_delegation_token" type="text"><br/>
-
                     <div class="subsection">
                         Delegatee privkey hex or nsec:<br/>
                         <input name="delegatee_pk" type="text"><br/>
                         <div class="note">(Optional, but if omitted, you won't be able to sign events in this UI)</div>
                     </div>
-
                     <input onclick="nip26Sign('nip26_raw_delegation_token');" type="button" value="Sign delegation" >
                 </div>
-
 
                 <div class="subsection">
                     Delegation token:<br/>
@@ -223,7 +237,7 @@
 
                 <div id="event_nip26_text_note_container" class="start_hidden">
                     Uses the delegation tag above so the delegatee can sign a new text note on behalf of the delegator.
-                    
+
                     <div class="subsection">
                         Text note:<br/>
                         <textarea id="event_nip26_text_note" cols="60" rows="5"></textarea>
@@ -240,7 +254,6 @@
                     Raw event json:<br/>
                     <textarea id="event_json" cols="80" rows="10" readonly></textarea><br/>
                 </div>
-
                 <div class="subsection">
                     Note ID:<br/>
                     <input id="event_note_id" type="text" readonly>
@@ -286,8 +299,8 @@ nostr.zebedee.cloud</textarea>
                 <img src="/static/lnurl.png" width="50%">
                 <br/>
                 <input type="button" onclick="location.href='lightning:LNURL1DP68GURN8GHJ7AMPD3KX2AR0VEEKZAR0WD5XJTNRDAKJ7TNHV4KXCTTTDEHHWM30D3H82UNVWQHK6ETJWFUKGMMRW3HHYDF5UYSVD2';" value="⚡ tip via LNURL ⚡"><br/>
-                <br/>
 
+                <br/>
                 <input type="text" readonly value="LNURL1DP68GURN8GHJ7AMPD3KX2AR0VEEKZAR0WD5XJTNRDAKJ7TNHV4KXCTTTDEHHWM30D3H82UNVWQHK6ETJWFUKGMMRW3HHYDF5UYSVD2">
             </div>            
         </div>

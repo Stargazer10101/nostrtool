@@ -16,7 +16,7 @@
     </div>
 
     <div class="subsection">
-        Name:<br/>
+        Metadata:<br/>
         <textarea id="metadata" rows="18">{
     "lud06": "",
     "website": "",
@@ -33,8 +33,11 @@
     </div>
 
     <div class="subsection">
+        <input onclick="validateNip05FromMetadata();" type="button" value="Validate NIP-05 Identifier">
         <input onclick="eventSign('metadata', 'metadata');" type="button" value="Sign metadata" >
     </div>
+
+    <div id="nip05_result" class="subsection"></div>
 
     <div class="subsection">
         Raw event json:<br/>
@@ -61,6 +64,58 @@
 
 {% block end_content %}
     <script>
+        /************************* NIP-05 Validation *************************/
+        function validateNip05FromMetadata() {
+            let metadata;
+            try {
+                metadata = JSON.parse(document.getElementById("metadata").value);
+            } catch (e) {
+                showPopupMessage("Invalid metadata JSON format.");
+                return;
+            }
+
+            let identifier = metadata.nip05;
+            let pubkey_hex = document.getElementById("pubkey_hex").value;
+
+            if (!identifier || !pubkey_hex) {
+                showPopupMessage("Please provide a NIP-05 identifier in the metadata and a public key.");
+                return;
+            }
+
+            let data = new FormData();
+            data.append("identifier", identifier);
+            data.append("pubkey_hex", pubkey_hex);
+
+            showLoader();
+            fetch(
+                "/nip05/validate",
+                {
+                    method: 'POST',
+                    body: data
+                }
+            )
+            .then(response => response.json())
+            .then(result => {
+                hideLoader();
+                let resultDiv = document.getElementById("nip05_result");
+                if (result.status === "success") {
+                    resultDiv.innerHTML = `<p style="color: green;">${result.message}</p>`;
+                    if (result.relays && result.relays.length > 0) {
+                        resultDiv.innerHTML += `<p>Recommended relays: ${result.relays.join(", ")}</p>`;
+                    }
+                } else {
+                    resultDiv.innerHTML = `<p style="color: red;">${result.message}</p>`;
+                    if (result.message.includes("CORS")) {
+                        resultDiv.innerHTML += `<p>Ensure the server includes 'Access-Control-Allow-Origin: *' in its response headers.</p>`;
+                    }
+                }
+            })
+            .catch(reason => {
+                hideLoader();
+                showPopupMessage(`Error: ${reason}`);
+            });
+        }
+
         /************************* Initialization *************************/
         document.addEventListener("DOMContentLoaded", function(){
             document.getElementById("popup_message_ok").addEventListener('click', () => {
@@ -69,7 +124,8 @@
                 document.getElementById("event_json").value = "";
                 // document.getElementById("event_note_id").value = "";
                 document.getElementById("event_signature").value = "";
-                
+
+                document.getElementById("nip05_result").innerHTML = "";
             });
         });
     </script>
