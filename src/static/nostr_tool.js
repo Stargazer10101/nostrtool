@@ -1,5 +1,3 @@
-
-
 /************************* Nostr Private Key *************************/
 var pk_slide_open = null;
 function clearPKDisplayFields() {
@@ -8,7 +6,6 @@ function clearPKDisplayFields() {
     document.getElementById("pubkey_npub").value = "";
     document.getElementById("pubkey_hex").value = "";
 }
-
 
 function createNewPK(keytype) {
     let target = null;
@@ -21,11 +18,10 @@ function createNewPK(keytype) {
         data.append("mnemonic_length", 12);
         target = document.getElementById("bip39_mnemonic_container")
     } else if (keytype == "bip39_24") {
-        target = data.append("mnemonic_length", 24);
+        data.append("mnemonic_length", 24);
         target = document.getElementById("bip39_mnemonic_container")
     }
 
-    // Close an open option, if any
     if ((pk_slide_open !== null && target === null) || (pk_slide_open !== null && target !== null && pk_slide_open.id != target.id)) {
         slideUp(pk_slide_open);
         pk_slide_open = null;
@@ -57,8 +53,6 @@ function createNewPK(keytype) {
     })
 }
 
-
-
 function prepareLoadPK(keytype) {
     clearPKDisplayFields();
 
@@ -68,7 +62,6 @@ function prepareLoadPK(keytype) {
         target = document.getElementById("input_mnemonic_container");
     }
 
-    // Close an open option, if any
     if (pk_slide_open !== null && pk_slide_open.id != target.id) {
         slideUp(pk_slide_open);
         pk_slide_open = null;
@@ -78,10 +71,7 @@ function prepareLoadPK(keytype) {
         slideDown(target);
         pk_slide_open = target;
     }
-
 }
-
-
 
 function loadPK(keytype, targetId) {
     let target = document.getElementById(targetId);
@@ -107,10 +97,69 @@ function loadPK(keytype, targetId) {
     .catch(reason => {
         console.log(reason);
     })
-
 }
 
+/************************* NIP-05 Validation *************************/
+var nip05_slide_open = null;
+function prepareNip05Validate() {
+    let target = document.getElementById("nip05_validate_container");
 
+    if (nip05_slide_open !== null && nip05_slide_open.id != target.id) {
+        slideUp(nip05_slide_open);
+        nip05_slide_open = null;
+    }
+
+    if (nip05_slide_open === null) {
+        slideDown(target);
+        nip05_slide_open = target;
+    }
+
+    // Clear previous results
+    document.getElementById("nip05_result").innerHTML = "";
+}
+
+function validateNip05() {
+    let identifier = document.getElementById("nip05_identifier").value;
+    let pubkey_hex = document.getElementById("pubkey_hex").value;
+
+    if (!identifier || !pubkey_hex) {
+        showPopupMessage("Please provide both a NIP-05 identifier and a public key.");
+        return;
+    }
+
+    let data = new FormData();
+    data.append("identifier", identifier);
+    data.append("pubkey_hex", pubkey_hex);
+
+    showLoader();
+    fetch(
+        "/nip05/validate",
+        {
+            method: 'POST',
+            body: data
+        }
+    )
+    .then(response => response.json())
+    .then(result => {
+        hideLoader();
+        let resultDiv = document.getElementById("nip05_result");
+        if (result.status === "success") {
+            resultDiv.innerHTML = `<p style="color: green;">${result.message}</p>`;
+            if (result.relays && result.relays.length > 0) {
+                resultDiv.innerHTML += `<p>Recommended relays: ${result.relays.join(", ")}</p>`;
+            }
+        } else {
+            resultDiv.innerHTML = `<p style="color: red;">${result.message}</p>`;
+            if (result.message.includes("CORS")) {
+                resultDiv.innerHTML += `<p>Ensure the server includes 'Access-Control-Allow-Origin: *' in its response headers.</p>`;
+            }
+        }
+    })
+    .catch(reason => {
+        hideLoader();
+        showPopupMessage(`Error: ${reason}`);
+    });
+}
 
 /************************* NIP-26 *************************/
 var curNip26Slide = null;
@@ -126,7 +175,6 @@ function prepareLoadNip26(container_id) {
         curNip26Slide = target;
     }
 }
-
 
 function nip26CreateAndSign() {
     let delegator_pk_hex = document.getElementById("pk_hex").value;
@@ -178,7 +226,6 @@ function nip26CreateAndSign() {
     })
 }
 
-
 function nip26Sign(dataSource) {
     let data = new FormData();
     let delegation_token = document.getElementById(dataSource).value;
@@ -216,8 +263,6 @@ function nip26Sign(dataSource) {
     })
 }
 
-
-
 /************************* EVENTS *************************/
 var curEventSlide = null;
 function showEvent(container_id) {
@@ -233,8 +278,6 @@ function showEvent(container_id) {
     }
 }
 
-
-
 function eventSign(type, dataSource) {
     let data = new FormData();
     let pk_hex = null;
@@ -248,7 +291,6 @@ function eventSign(type, dataSource) {
     }
 
     if (type.includes("nip26")) {
-        // Need to pull the delegatee's PK and the delegation tag
         pk_hex = document.getElementById("nip26_delegatee_privkey_hex").value;
         if (pk_hex == "") {
             showPopupMessage("No delegatee private key!<p>Return to the NIP-26 Delegation section.</p>");
@@ -288,8 +330,6 @@ function eventSign(type, dataSource) {
     })
 }
 
-
-
 function eventPublish() {
     let data = new FormData();
     let event_json = document.getElementById("event_json").value;
@@ -328,10 +368,7 @@ function eventPublish() {
     })
 }
 
-
-
 /************************* Helper utils *************************/
-// see: https://codepen.io/ivanwebstudio/pen/OJVzPBL
 var speedAnimation = 400;
 function slideUp(target, duration=speedAnimation) {
     target.style.transitionProperty = 'height, margin, padding';
@@ -355,7 +392,6 @@ function slideUp(target, duration=speedAnimation) {
       target.style.removeProperty('overflow');
       target.style.removeProperty('transition-duration');
       target.style.removeProperty('transition-property');
-      //alert("!");
     }, duration);
 }
 
@@ -399,7 +435,6 @@ function slideToggle(target, duration=speedAnimation) {
     }
 }
 
-
 function showLoader() {
     document.getElementById("popup_grayout").style.display = "block";
     document.getElementById("loader").style.display = "block";
@@ -422,14 +457,10 @@ function hidePopupMessage() {
     document.getElementById("popup_message_content").innerHTML = "";
 }
 
-
-
 function slideBtnClick(id) {
     let target = document.getElementById(id);
     target.addEventListener('click', () => slideToggle(target.parentElement.querySelector(".section_content")));
 }
-
-
 
 /************************* Initialization *************************/
 document.addEventListener("DOMContentLoaded", function(){
@@ -441,16 +472,13 @@ document.addEventListener("DOMContentLoaded", function(){
     });
 });
 
-
-
 function initializeIndex() {
     slideBtnClick("header_event");
     slideBtnClick("header_nip26");
+    slideBtnClick("header_nip05");
 
-    // Initialize the NIP-26 "Create" elements
     let target = document.getElementById("nip26_create_kinds_checkboxes");
 
-    // Load the supported event kinds and create checkboxes
     fetch("/event/kinds")
     .then(response => response.json())
     .then(result => {
@@ -472,10 +500,8 @@ function initializeIndex() {
         }
     })
 
-
     document.getElementById('nip26_create_valid_from').valueAsDate = new Date();
 
-    // Default valid_until to one month
     var valid_until = new Date();
     valid_until.setMonth(valid_until.getMonth() + 1);
     document.getElementById('nip26_create_valid_until').valueAsDate = valid_until;
