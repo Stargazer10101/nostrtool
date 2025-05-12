@@ -240,6 +240,45 @@
             </div>
         </div>
 
+        <div id="section_nwc" class="section">
+            <div id="header_nwc" class="section_header">Nostr Wallet Connect (NIP-47)</div>
+            <div id="content_nwc" class="section_content start_hidden">
+                <div class="subsection">
+                    Connect to a NIP-47 compatible wallet service (like Alby or your own NWC bridge).
+                    <div>
+                        <input onclick="prepareNwcConnect();" type="button" value="Connect Wallet" >
+                    </div>
+                </div>
+
+                <div id="nwc_connect_container" class="start_hidden">
+                    <div class="subsection">
+                        Enter your NWC URI:<br/>
+                        <input id="nwc_uri" type="text" placeholder="nostr+walletconnect://..."><br/>
+                        <input onclick="nwcConnect();" type="button" value="Connect & Get Info">
+                    </div>
+                </div>
+
+                <div id="nwc_wallet_info" class="subsection"></div>
+
+                <div id="nwc_actions" class="subsection start_hidden">
+                    <div class="subsection">
+                        <input onclick="nwcGetBalance();" type="button" value="Get Balance">
+                        <div id="nwc_balance_display"></div>
+                    </div>
+
+                    <div class="subsection">
+                        Pay a BOLT11 invoice:<br/>
+                        <textarea id="nwc_invoice_str" cols="80" rows="3" placeholder="lnbc..."></textarea><br/>
+                        <input id="nwc_invoice_amount_msats" type="number" placeholder="Amount in msats (optional)"><br/>
+                        <input onclick="nwcPayInvoice();" type="button" value="Pay Invoice">
+                        <div id="nwc_pay_result"></div>
+                    </div>
+                </div>
+
+                <div id="nwc_response" class="subsection"></div>
+            </div>
+        </div>
+
         <div id="section_relays" class="section">
             <div id="header_relays" class="section_header">Relays</div>
             <div class="section_content start_hidden">

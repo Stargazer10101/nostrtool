@@ -368,6 +368,172 @@ function eventPublish() {
     })
 }
 
+/************************* NIP-47 (NWC) *************************/
+var nwc_slide_open = null;
+
+function prepareNwcConnect() {
+    let target = document.getElementById("nwc_connect_container");
+
+    if (nwc_slide_open !== null && nwc_slide_open.id != target.id) {
+        slideUp(nwc_slide_open);
+        nwc_slide_open = null;
+    }
+
+    if (nwc_slide_open === null) {
+        slideDown(target);
+        nwc_slide_open = target;
+    }
+
+    // Clear previous results
+    document.getElementById("nwc_wallet_info").innerHTML = "";
+    document.getElementById("nwc_balance_display").innerHTML = "";
+    document.getElementById("nwc_pay_result").innerHTML = "";
+    document.getElementById("nwc_response").innerHTML = "";
+    document.getElementById("nwc_actions").style.display = "none";
+}
+
+function parseNwcUri(uriString) {
+    try {
+        // Remove the protocol prefix
+        const uri = uriString.replace('nostr+walletconnect://', '');
+        
+        // Split into components
+        const [pubkey, relay, secret, ...rest] = uri.split('?');
+        
+        // Parse query parameters
+        const params = {};
+        if (rest.length > 0) {
+            const queryString = rest.join('?');
+            const searchParams = new URLSearchParams(queryString);
+            for (const [key, value] of searchParams.entries()) {
+                params[key] = value;
+            }
+        }
+
+        return {
+            walletServicePubkey: pubkey,
+            relayUrl: relay,
+            clientSecretKeyHex: secret,
+            lud16: params.lud16 || null
+        };
+    } catch (error) {
+        throw new Error('Invalid NWC URI format');
+    }
+}
+
+function nwcConnect() {
+    const uriString = document.getElementById("nwc_uri").value;
+    if (!uriString) {
+        showPopupMessage("Please enter a NWC URI");
+        return;
+    }
+
+    // Clear previous results
+    document.getElementById("nwc_wallet_info").innerHTML = "";
+    document.getElementById("nwc_response").innerHTML = "";
+
+    // Show loading state
+    showLoader();
+
+    // Send the URI directly to the backend
+    const data = new FormData();
+    data.append("nwc_uri", uriString);
+
+    fetch("/nwc/connect_and_fetch_info", {
+        method: "POST",
+        body: data
+    })
+    .then(response => response.json())
+    .then(result => {
+        hideLoader();
+        if (result.status === "success") {
+            // Display wallet info
+            const infoHtml = `
+                <h3>Wallet Service Info</h3>
+                <p><strong>Alias:</strong> ${result.alias}</p>
+                <p><strong>Supported Methods:</strong> ${result.methods.join(", ")}</p>
+                <p><strong>Notifications:</strong> ${result.notifications.join(", ")}</p>
+            `;
+            document.getElementById("nwc_wallet_info").innerHTML = infoHtml;
+            
+            // Show action buttons
+            document.getElementById("nwc_actions").style.display = "block";
+        } else {
+            document.getElementById("nwc_wallet_info").innerHTML = `
+                <p style="color: red;">Error: ${result.message}</p>
+            `;
+        }
+    })
+    .catch(error => {
+        hideLoader();
+        document.getElementById("nwc_wallet_info").innerHTML = `
+            <p style="color: red;">Error: ${error.message}</p>
+        `;
+    });
+}
+
+function nwcGetBalance() {
+    showLoader();
+    fetch("/nwc/get_balance", {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(result => {
+        hideLoader();
+        const balanceDisplay = document.getElementById("nwc_balance_display");
+        if (result.status === "success") {
+            balanceDisplay.innerHTML = `
+                <p><strong>Balance:</strong> ${result.balance} msats</p>
+            `;
+        } else {
+            balanceDisplay.innerHTML = `<p style="color: red;">${result.message}</p>`;
+        }
+    })
+    .catch(error => {
+        hideLoader();
+        showPopupMessage(`Error: ${error.message}`);
+    });
+}
+
+function nwcPayInvoice() {
+    const invoiceStr = document.getElementById("nwc_invoice_str").value;
+    const amountMsats = document.getElementById("nwc_invoice_amount_msats").value;
+
+    if (!invoiceStr) {
+        showPopupMessage("Please enter a BOLT11 invoice");
+        return;
+    }
+
+    const data = new FormData();
+    data.append("invoice", invoiceStr);
+    if (amountMsats) {
+        data.append("amount", amountMsats);
+    }
+
+    showLoader();
+    fetch("/nwc/pay_invoice", {
+        method: 'POST',
+        body: data
+    })
+    .then(response => response.json())
+    .then(result => {
+        hideLoader();
+        const payResult = document.getElementById("nwc_pay_result");
+        if (result.status === "success") {
+            payResult.innerHTML = `
+                <p style="color: green;">Payment successful!</p>
+                ${result.preimage ? `<p><strong>Preimage:</strong> ${result.preimage}</p>` : ''}
+            `;
+        } else {
+            payResult.innerHTML = `<p style="color: red;">${result.message}</p>`;
+        }
+    })
+    .catch(error => {
+        hideLoader();
+        showPopupMessage(`Error: ${error.message}`);
+    });
+}
+
 /************************* Helper utils *************************/
 var speedAnimation = 400;
 function slideUp(target, duration=speedAnimation) {
@@ -476,6 +642,7 @@ function initializeIndex() {
     slideBtnClick("header_event");
     slideBtnClick("header_nip26");
     slideBtnClick("header_nip05");
+    slideBtnClick("header_nwc");
 
     let target = document.getElementById("nip26_create_kinds_checkboxes");
 
