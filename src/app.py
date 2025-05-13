@@ -8,6 +8,7 @@ from nostr.delegation import Delegation
 from nostr.event import Event, EventKind
 from nostr.key import Bip39PrivateKey, PrivateKey, PublicKey
 from nostr.relay_manager import RelayManager
+from urllib.parse import unquote
 from nostr.filter import Filter
 import json
 
@@ -87,26 +88,52 @@ def _send_nwc_request(method_name, params_dict):
                 # --- End Debug Logging ---
 
                 # Check if this is a response to our request
-                if (event.kind == NWC_RESPONSE_KIND and 
+                if (
+                    event.kind == NWC_RESPONSE_KIND and
                     event.pubkey == session['nwc_wallet_pubkey'] and
-                    any(tag[0] == "e" and tag[1] == request_event.id for tag in event.tags)):
-                    
-                    print(f"[{datetime.now()}] Matched response event!") # Log match
+                    any(tag[0] == "e" and tag[1] == request_event.id for tag in event.tags) and
+                    any(tag[0] == "p" and tag[1] == client_pubkey_hex for tag in event.tags) # Check for p-tag to client
+                ):
+                    print(f"[{datetime.now()}] Matched response event criteria!")
+
                     # Decrypt response
-                    decrypted_content = client_privkey.decrypt_message(
-                        event.content,
-                        session['nwc_wallet_pubkey']
-                    )
-                    response_data = json.loads(decrypted_content)
-                    
-                    # Clean up
+                    try:
+                        decrypted_content = client_privkey.decrypt_message(
+                            event.content,
+                            session['nwc_wallet_pubkey']
+                        )
+                        response_data = json.loads(decrypted_content)
+                    except Exception as e:
+                        print(f"[{datetime.now()}] Error decrypting/parsing response: {e}")
+                        relay_manager.close_all_relay_connections()
+                        return {"status": "error", "message": f"Error decrypting/parsing NWC response: {e}"}
+
+                    # Clean up relay connection early
                     relay_manager.close_all_relay_connections()
-                    
-                    if "error" in response_data:
+
+                    # Verify result_type
+                    if response_data.get("result_type") != method_name:
+                        print(f"[{datetime.now()}] Mismatched result_type. Expected {method_name}, got {response_data.get('result_type')}")
                         return {
                             "status": "error",
-                            "message": response_data["error"].get("message", "Unknown error")
+                            "message": f"NWC response error: Mismatched result_type. Expected {method_name}, got {response_data.get('result_type')}"
                         }
+
+                    if "error" in response_data and response_data["error"] is not None:
+                        error_details = response_data["error"]
+                        err_code = error_details.get("code", "UNKNOWN_CODE")
+                        err_message = error_details.get("message", "Unknown NWC error from wallet.")
+                        print(f"[{datetime.now()}] NWC Error from wallet: {err_code} - {err_message}")
+                        return {
+                            "status": "error",
+                            "message": f"NWC Error: {err_code} - {err_message}",
+                            "code": err_code
+                        }
+                    
+                    if "result" not in response_data and not ("error" in response_data and response_data["error"] is not None):
+                         print(f"[{datetime.now()}] NWC response missing 'result' and 'error' fields.")
+                         return {"status": "error", "message": "NWC response error: Missing 'result' and 'error' fields."}
+
                     return {
                         "status": "success",
                         "data": response_data.get("result", {})
@@ -151,12 +178,18 @@ def nwc_connect_and_fetch_info():
             return {"status": "error", "message": "Missing required NWC parameters (relay, secret)"}
         
         # Store the correctly parsed pubkey
+        relay_url_encoded = params['relay']
+        relay_url_decoded = unquote(relay_url_encoded)
+
         session['nwc_wallet_pubkey'] = wallet_pubkey 
         session['nwc_client_secret'] = params['secret']
+        
         # Ensure relay URL starts with wss:// for the helper function
-        relay_url = params['relay']
-        if not relay_url.startswith('wss://'):
-             relay_url = f"wss://{relay_url}"
+        if not relay_url_decoded.startswith('wss://'):
+             relay_url = f"wss://{relay_url_decoded}"
+        else:
+            relay_url = relay_url_decoded
+            
         session['nwc_relay_url'] = relay_url # Store the full URL
         if 'lud16' in params:
             session['nwc_lud16'] = params['lud16']
